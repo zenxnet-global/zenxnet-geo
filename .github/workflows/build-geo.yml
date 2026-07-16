@@ -1,0 +1,51 @@
+name: build-geo
+on:
+  schedule:
+    - cron: "0 4 * * *"   # каждый день 04:00 UTC
+  workflow_dispatch: {}    # + кнопка запустить вручную
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Install geoip tool
+        run: go install github.com/v2fly/geoip@latest
+      - name: Download sources
+        run: |
+          curl -fsSL -o geoip-full.dat https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
+          curl -fsSL -o geosite.dat    https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
+      - name: Write geoip config
+        run: |
+          cat > geoip-config.json <<'EOF'
+          {
+            "input": [
+              { "type": "v2rayGeoIPDat", "action": "add",
+                "args": { "uri": "./geoip-full.dat", "wantedList": ["ru", "private"] } }
+            ],
+            "output": [
+              { "type": "v2rayGeoIPDat", "action": "output",
+                "args": { "outputDir": "./output", "outputName": "geoip.dat", "wantedList": ["ru", "private"] } }
+            ]
+          }
+          EOF
+      - name: Build trimmed geoip
+        run: |
+          "$(go env GOPATH)/bin/geoip" convert -c geoip-config.json
+          cp output/geoip.dat geoip.dat
+          ls -lh geoip.dat geosite.dat
+      - name: Commit
+        run: |
+          git config user.name "geo-bot"
+          git config user.email "geo-bot@users.noreply.github.com"
+          git add geoip.dat geosite.dat
+          git commit -m "geo update" || echo "no changes"
+          git push
+      - name: Purge jsDelivr
+        run: |
+          curl -s "https://purge.jsdelivr.net/gh/zenxnet-global/zenxnet-geo@main/geoip.dat"   || true
+          curl -s "https://purge.jsdelivr.net/gh/zenxnet-global/zenxnet-geo@main/geosite.dat" || true
