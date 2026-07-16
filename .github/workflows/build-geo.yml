@@ -1,8 +1,8 @@
 name: build-geo
 on:
   schedule:
-    - cron: "0 4 * * *"   # каждый день 04:00 UTC
-  workflow_dispatch: {}    # + кнопка запустить вручную
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}
 permissions:
   contents: write
 jobs:
@@ -21,7 +21,7 @@ jobs:
           curl -fsSL -o geosite.dat    https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
       - name: Write geoip config
         run: |
-          cat > geoip-config.json <<'EOF'
+          cat > config.json <<'EOF'
           {
             "input": [
               { "type": "v2rayGeoIPDat", "action": "add",
@@ -35,7 +35,7 @@ jobs:
           EOF
       - name: Build trimmed geoip
         run: |
-          "$(go env GOPATH)/bin/geoip" convert -c geoip-config.json
+          "$(go env GOPATH)/bin/geoip" convert
           cp output/geoip.dat geoip.dat
           ls -lh geoip.dat geosite.dat
       - name: Commit
